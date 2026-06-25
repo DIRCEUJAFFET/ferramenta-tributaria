@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analisador de Passivo Tributário – LLE Contabilidade</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --blue:#1a237e;--blue2:#0d47a1;--blue3:#1565c0;
+      --red:#e53935;--green:#2e7d32;--orange:#e65100;
+      --gray:#f0f2f5;--border:#e3e7f5;
+      --text:#1a1a2e;--text2:#6b7280;
+    }
+    body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:var(--text);background:var(--gray);min-height:100vh}
+
+    /* NAV */
+    nav{background:linear-gradient(135deg,var(--blue),var(--blue2));padding:0 32px;height:56px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 12px rgba(0,0,0,0.2)}
+    .nav-brand{color:#fff;font-size:15px;font-weight:700;letter-spacing:-0.3px}
+    .nav-brand span{opacity:0.7;font-weight:400;margin-left:8px;font-size:12px}
+    .nav-badge{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:0.5px}
+
+    /* LAYOUT */
+    .container{max-width:960px;margin:0 auto;padding:28px 16px}
+    .hero{text-align:center;padding:32px 0 24px}
+    .hero h1{font-size:24px;font-weight:800;color:var(--blue);letter-spacing:-0.5px}
+    .hero p{color:var(--text2);margin-top:6px;font-size:13px;max-width:520px;margin-inline:auto;line-height:1.6}
+
+    /* CARD */
+    .card{background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.08);border:1px solid var(--border);margin-bottom:20px;overflow:hidden}
+    .card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+    .card-header h2{font-size:13px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:0.5px}
+    .step-num{width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .card-body{padding:20px}
+
+    /* API KEY */
+    .api-row{display:flex;gap:10px;align-items:center}
+    .input-wrap{flex:1;position:relative}
+    .input-wrap input{width:100%;padding:10px 40px 10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;transition:border-color .2s}
+    .input-wrap input:focus{border-color:var(--blue2)}
+    .toggle-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text2);font-size:16px;line-height:1}
+    .btn{padding:10px 18px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;white-space:nowrap}
+    .btn-primary{background:var(--blue);color:#fff}
+    .btn-primary:hover{background:var(--blue2)}
+    .btn-outline{background:#fff;border:1.5px solid var(--border);color:var(--text)}
+    .btn-outline:hover{border-color:var(--blue);color:var(--blue)}
+    .btn-danger{background:var(--red);color:#fff}
+    .btn-danger:hover{opacity:.85}
+    .btn-success{background:var(--green);color:#fff;padding:12px 28px;font-size:13px}
+    .btn-success:hover{opacity:.9}
+    .btn-success:disabled{background:#9e9e9e;cursor:not-allowed}
+    .api-status{display:inline-flex;align-items:center;gap:5px;font-size:11px;margin-top:8px}
+    .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+    .dot.ok{background:#4caf50}
+    .dot.err{background:var(--red)}
+    .dot.warn{background:#ff9800}
+    .hint{font-size:10.5px;color:var(--text2);margin-top:6px;line-height:1.5}
+    .hint a{color:var(--blue2);text-decoration:none}
+    .hint a:hover{text-decoration:underline}
+
+    /* UPLOAD */
+    .drop-zone{border:2px dashed var(--border);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
+    .drop-zone:hover,.drop-zone.drag{border-color:var(--blue2);background:#f0f4ff}
+    .drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+    .dz-icon{font-size:36px;margin-bottom:10px}
+    .dz-title{font-size:14px;font-weight:600;color:var(--text)}
+    .dz-sub{font-size:11px;color:var(--text2);margin-top:4px}
+    .file-list{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+    .file-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--gray);border-radius:8px;border:1px solid var(--border)}
+    .file-icon{font-size:18px;flex-shrink:0}
+    .file-name{flex:1;font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .file-size{font-size:11px;color:var(--text2);flex-shrink:0}
+    .file-status{font-size:10px;padding:2px 8px;border-radius:20px;flex-shrink:0;font-weight:600}
+    .file-status.ok{background:#e8f5e9;color:var(--green)}
+    .file-status.proc{background:#e3f2fd;color:var(--blue2)}
+    .file-status.err{background:#ffebee;color:var(--red)}
+    .btn-remove{background:none;border:none;cursor:pointer;color:var(--text2);font-size:14px;padding:2px 4px;border-radius:4px;line-height:1}
+    .btn-remove:hover{background:#f5f5f5;color:var(--red)}
+
+    /* TEXTO MANUAL */
+    .or-divider{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--text2);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+    .or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+    textarea{width:100%;height:140px;padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:'Inter',monospace;resize:vertical;outline:none;line-height:1.6;transition:border-color .2s}
+    textarea:focus{border-color:var(--blue2)}
+    textarea::placeholder{color:#bbb}
+
+    /* ANALYZE BTN */
+    .analyze-wrap{text-align:center;padding:8px 0}
+
+    /* PROGRESS */
+    .progress-card{display:none}
+    .progress-card.show{display:block}
+    .progress-steps{display:flex;flex-direction:column;gap:10px}
+    .p-step{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;background:var(--gray);border:1px solid var(--border);transition:all .3s}
+    .p-step.active{background:#e3f2fd;border-color:#90caf9}
+    .p-step.done{background:#e8f5e9;border-color:#a5d6a7}
+    .p-step.error{background:#ffebee;border-color:#ef9a9a}
+    .p-icon{font-size:18px;flex-shrink:0;width:24px;text-align:center}
+    .p-label{font-size:12px;font-weight:500}
+    .p-sub{font-size:10px;color:var(--text2);margin-top:1px}
+    .spinner{display:inline-block;width:16px;height:16px;border:2px solid #90caf9;border-top-color:var(--blue2);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* REPORT */
+    .report-card{display:none}
+    .report-card.show{display:block}
+    .report-actions{display:flex;gap:10px;flex-wrap:wrap;padding:16px 20px;background:var(--gray);border-bottom:1px solid var(--border)}
+    .report-body{padding:28px 32px}
+
+    /* Markdown report styles */
+    .report-body h1{font-size:22px;font-weight:800;color:var(--blue);margin-bottom:6px;letter-spacing:-0.5px}
+    .report-body h2{font-size:14px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:0.5px;padding-bottom:6px;border-bottom:2px solid var(--blue);margin:24px 0 12px}
+    .report-body h3{font-size:12px;font-weight:700;color:var(--blue);margin:16px 0 8px;padding:6px 12px;background:#e8eaf6;border-radius:4px}
+    .report-body p{line-height:1.7;margin-bottom:10px;font-size:12.5px}
+    .report-body ul,.report-body ol{padding-left:20px;margin-bottom:10px}
+    .report-body li{margin-bottom:4px;font-size:12.5px;line-height:1.6}
+    .report-body strong{font-weight:700}
+    .report-body blockquote{background:#f8f9ff;border-left:4px solid var(--blue2);padding:10px 14px;border-radius:0 8px 8px 0;margin:12px 0;font-size:12px;color:#444}
+    .report-body table{width:100%;border-collapse:collapse;margin:12px 0;font-size:11.5px}
+    .report-body thead th{background:var(--blue);color:#fff;padding:8px 12px;text-align:left;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px}
+    .report-body tbody tr:nth-child(even){background:#f8f9ff}
+    .report-body tbody td{padding:7px 12px;border-bottom:1px solid var(--border)}
+    .report-body tfoot td{background:var(--blue);color:#fff;padding:8px 12px;font-weight:700}
+    .report-body hr{border:none;border-top:1px solid var(--border);margin:20px 0}
+    .report-body code{background:#f0f2f5;padding:1px 6px;border-radius:4px;font-size:11px;font-family:monospace}
+    .report-body pre{background:#1a237e;color:#e8eaf6;padding:14px;border-radius:8px;font-size:11px;overflow-x:auto;margin:12px 0}
+
+    /* ALERT */
+    .alert{padding:12px 16px;border-radius:8px;font-size:12px;margin-bottom:16px;border-left:4px solid}
+    .alert.info{background:#e3f2fd;border-color:var(--blue2);color:#1565c0}
+    .alert.warn{background:#fff8e1;border-color:#f9a825;color:#e65100}
+    .alert.err{background:#ffebee;border-color:var(--red);color:#c62828}
+
+    /* FOOTER */
+    footer{text-align:center;padding:24px;color:var(--text2);font-size:10.5px;border-top:1px solid var(--border);margin-top:8px}
+
+    /* PRINT */
+    @media print{
+      nav,footer,.report-actions,.card:not(.report-card){display:none!important}
+      .report-card{display:block!important}
+      body{background:#fff}
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    LLE Contabilidade
+    <span>| Analisador de Passivo Tributário</span>
+  </div>
+  <span class="nav-badge">Ferramenta Interna</span>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <h1>Diagnóstico Tributário com Inteligência Artificial</h1>
+    <p>Envie os documentos fiscais do cliente, clique em <strong>Gerar Relatório</strong> e receba um diagnóstico completo pronto para apresentação.</p>
+  </div>
+
+  <!-- STEP 1: API KEY -->
+  <div class="card" id="card-apikey">
+    <div class="card-header">
+      <div class="step-num">1</div>
+      <h2>Configurar Chave de Acesso (API Key)</h2>
+    </div>
+    <div class="card-body">
+      <div class="api-row">
+        <div class="input-wrap">
+          <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off" />
+          <button class="toggle-eye" onclick="toggleKey()" title="Mostrar/ocultar">👁</button>
+        </div>
+        <button class="btn btn-primary" onclick="saveKey()">Salvar</button>
+        <button class="btn btn-outline" onclick="clearKey()">Limpar</button>
+      </div>
+      <div id="apiStatus"></div>
+      <p class="hint">
+        A chave fica salva apenas neste navegador (nunca enviada a terceiros).<br>
+        Obtenha a sua em <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API Keys.
+        Cada análise consome aproximadamente <strong>R$ 0,10 a R$ 0,30</strong> em créditos.
+      </p>
+    </div>
+  </div>
+
+  <!-- STEP 2: DOCUMENTOS -->
+  <div class="card">
+    <div class="card-header">
+      <div class="step-num">2</div>
+      <h2>Enviar Documentos do Cliente</h2>
+    </div>
+    <div class="card-body">
+
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" multiple accept=".pdf,.txt" onchange="handleFiles(this.files)" />
+        <div class="dz-icon">📂</div>
+        <div class="dz-title">Arraste os arquivos aqui ou clique para selecionar</div>
+        <div class="dz-sub">Aceita PDF e TXT · Relatório de Situação Fiscal, PGFN, Simples Nacional, e-CAC etc.</div>
+      </div>
+
+      <div class="file-list" id="fileList"></div>
+
+      <div class="or-divider">ou cole o conteúdo abaixo</div>
+
+      <textarea id="manualText" placeholder="Cole aqui o conteúdo copiado dos documentos fiscais (Relatório de Situação Fiscal, extratos da Receita Federal, PGFN, etc.)..."></textarea>
+
+    </div>
+  </div>
+
+  <!-- STEP 3: GERAR -->
+  <div class="analyze-wrap">
+    <button class="btn btn-success" id="btnAnalyze" onclick="startAnalysis()">
+      🔍 Gerar Relatório de Diagnóstico
+    </button>
+  </div>
+
+  <!-- PROGRESS -->
+  <div class="card progress-card" id="progressCard">
+    <div class="card-header">
+      <div class="step-num">3</div>
+      <h2>Processando...</h2>
+    </div>
+    <div class="card-body">
+      <div class="progress-steps" id="progressSteps">
+        <div class="p-step" id="ps-read">
+          <span class="p-icon">📄</span>
+          <div><div class="p-label">Lendo documentos</div><div class="p-sub">Extraindo texto dos arquivos...</div></div>
+        </div>
+        <div class="p-step" id="ps-send">
+          <span class="p-icon">📡</span>
+          <div><div class="p-label">Enviando para análise</div><div class="p-sub">Conectando ao motor de inteligência artificial...</div></div>
+        </div>
+        <div class="p-step" id="ps-ai">
+          <span class="p-icon">🤖</span>
+          <div><div class="p-label">Analisando com IA</div><div class="p-sub">Classificando débitos, calculando totais, identificando riscos...</div></div>
+        </div>
+        <div class="p-step" id="ps-report">
+          <span class="p-icon">📋</span>
+          <div><div class="p-label">Gerando relatório</div><div class="p-sub">Formatando diagnóstico executivo...</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RELATÓRIO -->
+  <div class="card report-card" id="reportCard">
+    <div class="report-actions">
+      <button class="btn btn-primary" onclick="exportPDF()">⬇️ Exportar PDF</button>
+      <button class="btn btn-outline" onclick="window.print()">🖨️ Imprimir</button>
+      <button class="btn btn-outline" onclick="copyReport()">📋 Copiar Texto</button>
+      <button class="btn btn-outline" onclick="resetTool()" style="margin-left:auto">🔄 Nova Análise</button>
+    </div>
+    <div class="report-body" id="reportBody"></div>
+  </div>
+
+</div>
+
+<footer>
+  LLE Contabilidade &nbsp;·&nbsp; Ferramenta de Diagnóstico Tributário &nbsp;·&nbsp;
+  Desenvolvido com Inteligência Artificial &nbsp;·&nbsp; Uso interno exclusivo
+</footer>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ─── SYSTEM PROMPT ─────────────────────────────────────────────────── */
+const SYSTEM_PROMPT = `Você é uma equipe de especialistas composta por múltiplos agentes de inteligência artificial atuando de forma colaborativa para analisar passivos tributários empresariais e transformar informações técnicas em relatórios executivos de fácil compreensão para empresários.
+
+Seu objetivo é receber documentos enviados por um escritório de contabilidade, interpretar os dados, consolidar informações e gerar um relatório profissional para apresentação ao cliente.
+
+## AGENTE 1 – LEITOR DOCUMENTAL
+Leia todos os textos enviados. Identifique o tipo de documento. Extraia informações relevantes. Ignore informações irrelevantes. Consolide dados repetidos.
+Documentos possíveis: Relatório de Situação Fiscal, Extrato de Débitos da Receita Federal, Relatório Regularize PGFN, Dívida Ativa da União, Parcelamentos, Simulações, DARFs, Processos administrativos, e-CAC, Simples Nacional.
+
+## AGENTE 2 – CLASSIFICADOR TRIBUTÁRIO
+Identifique e classifique cada débito:
+- Tributos Federais: IRPJ, CSLL, PIS, COFINS, IPI, IOF, IRRF, Retenções Federais
+- Previdenciários: INSS Patronal, INSS Segurados, INSS Terceiros, RAT, CP
+- Simples Nacional: DAS, Débitos SN, Débitos inscritos
+- Dívida Ativa: PGFN, ajuizados, passíveis de negociação
+
+## AGENTE 3 – ANALISTA DE REGULARIZAÇÃO
+Para cada débito identifique: Origem, Natureza, Situação atual, Possibilidade de parcelamento, Modalidade, Quantidade de parcelas, Valor estimado da parcela, Entrada, Benefícios.
+Se houver simulações nos documentos, utilize os valores fornecidos. Caso contrário, informe "Necessário realizar simulação específica."
+
+## AGENTE 4 – CONSOLIDADOR EXECUTIVO
+Calcule o total geral separando Receita Federal e PGFN/Dívida Ativa.
+
+## AGENTE 5 – TRADUTOR EMPRESARIAL
+Transforme toda linguagem técnica em linguagem compreensível para empresários. Evite linguagem jurídica complexa, siglas sem explicação e termos excessivamente técnicos. Explique sempre o que é cada tributo de forma simples.
+
+## AGENTE 6 – GERADOR DE RELATÓRIO
+Monte o relatório final com EXATAMENTE esta estrutura em Markdown:
+
+# RELATÓRIO DE DIAGNÓSTICO TRIBUTÁRIO
+
+## 1. IDENTIFICAÇÃO DA EMPRESA
+(Tabela com: Razão Social, CNPJ, Endereço, Responsável, Atividade, Porte, Data de Abertura, Data da Análise)
+
+## 2. RESUMO EXECUTIVO
+(Texto em linguagem simples — máximo 10 linhas — explicando: situação encontrada, valor total devido, principais pendências, possibilidades de regularização)
+
+## 3. QUANTO A EMPRESA DEVE E PARA QUEM
+(Tabela resumo: Para quem deve | Valor | O que é — separando Receita Federal de PGFN, com TOTAL GERAL em destaque)
+
+## 4. O QUE A EMPRESA DEVE — EXPLICADO DE FORMA SIMPLES
+(Para cada grupo de débitos: GRUPO X — nome do grupo, tabela detalhada com: O que é | O que significa | Período | Valor, alertas em destaque, subtotal de cada grupo)
+
+## 5. COMO PAGAR — OPÇÕES DE PARCELAMENTO
+(Tabela: Grupo de Dívidas | Modalidade | Nº Parcelas | Entrada | Parcela Mensal | Total a Pagar)
+(Resumo com: Pagamento inicial, Parcela mensal total, Prazo, Total regularizado)
+
+## 6. CONCLUSÃO E PRÓXIMOS PASSOS
+(Lista de passos em ordem de prioridade: Urgente/Esta semana, Alta prioridade/15 dias, Importante/30 dias, Planejamento financeiro — com valor específico de cada ação)
+
+## REGRAS IMPORTANTES:
+1. NUNCA invente valores. Use apenas informações encontradas nos documentos.
+2. Se houver divergências, informe ao final.
+3. Consolide documentos repetidos.
+4. Priorize clareza acima de tudo.
+5. Use linguagem simples — pense como um empresário leigo.
+6. Destaque números importantes em negrito.
+7. Gere tabelas organizadas.
+8. Identifique débitos AJUIZADOS e com PROTESTO como prioridade máxima.`;
+
+/* ─── API KEY ────────────────────────────────────────────────────────── */
+let apiKey = localStorage.getItem('lle_api_key') || '';
+
+window.addEventListener('DOMContentLoaded', () => {
+  if (apiKey) {
+    document.getElementById('apiKeyInput').value = apiKey;
+    showApiStatus(true, 'Chave carregada do navegador');
+  }
+  setupDragDrop();
+});
+
+function toggleKey() {
+  const inp = document.getElementById('apiKeyInput');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function saveKey() {
+  const val = document.getElementById('apiKeyInput').value.trim();
+  if (!val) { showApiStatus(false,'Digite a chave antes de salvar'); return; }
+  if (!val.startsWith('sk-ant-')) { showApiStatus(false,'Chave inválida — deve começar com sk-ant-'); return; }
+  apiKey = val;
+  localStorage.setItem('lle_api_key', val);
+  showApiStatus(true, 'Chave salva com sucesso');
+}
+
+function clearKey() {
+  apiKey = '';
+  localStorage.removeItem('lle_api_key');
+  document.getElementById('apiKeyInput').value = '';
+  showApiStatus(false, 'Chave removida');
+}
+
+function showApiStatus(ok, msg) {
+  const el = document.getElementById('apiStatus');
+  el.innerHTML = `<div class="api-status"><span class="dot ${ok?'ok':'err'}"></span>${msg}</div>`;
+}
+
+/* ─── FILES ──────────────────────────────────────────────────────────── */
+let uploadedFiles = [];
+
+function setupDragDrop() {
+  const dz = document.getElementById('dropZone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag');
+    handleFiles(e.dataTransfer.files);
+  });
+}
+
+function handleFiles(files) {
+  Array.from(files).forEach(f => {
+    if (uploadedFiles.find(x => x.name === f.name)) return;
+    uploadedFiles.push({ file: f, text: '', status: 'pending' });
+  });
+  renderFileList();
+}
+
+function removeFile(idx) {
+  uploadedFiles.splice(idx, 1);
+  renderFileList();
+}
+
+function renderFileList() {
+  const el = document.getElementById('fileList');
+  if (!uploadedFiles.length) { el.innerHTML = ''; return; }
+  el.innerHTML = uploadedFiles.map((f, i) => `
+    <div class="file-item">
+      <span class="file-icon">${f.file.name.endsWith('.pdf') ? '📕' : '📄'}</span>
+      <span class="file-name">${f.file.name}</span>
+      <span class="file-size">${(f.file.size/1024).toFixed(0)} KB</span>
+      <span class="file-status ${f.status === 'ok' ? 'ok' : f.status === 'error' ? 'err' : 'proc'}">
+        ${f.status === 'ok' ? 'Lido ✓' : f.status === 'error' ? 'Erro' : 'Aguardando'}
+      </span>
+      <button class="btn-remove" onclick="removeFile(${i})">✕</button>
+    </div>`
+  ).join('');
+}
+
+async function extractPDFText(file) {
+  try {
+    const ab = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+    let text = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map(s => s.str).join(' ') + '\n\n';
+    }
+    return text.trim();
+  } catch (e) {
+    throw new Error('Falha ao ler PDF: ' + e.message);
+  }
+}
+
+async function extractTXTText(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = () => rej(new Error('Falha ao ler TXT'));
+    r.readAsText(file, 'UTF-8');
+  });
+}
+
+/* ─── PROGRESS ───────────────────────────────────────────────────────── */
+function setStep(id, state) {
+  const el = document.getElementById(id);
+  el.classList.remove('active','done','error');
+  el.classList.add(state);
+  const icon = el.querySelector('.p-icon');
+  if (state === 'active') icon.innerHTML = '<div class="spinner"></div>';
+  else if (state === 'done') icon.textContent = '✅';
+  else if (state === 'error') icon.textContent = '❌';
+}
+
+/* ─── MAIN ANALYSIS ──────────────────────────────────────────────────── */
+async function startAnalysis() {
+  // Validações
+  if (!apiKey) {
+    alert('Configure a Chave de Acesso (API Key) no Passo 1 antes de continuar.');
+    return;
+  }
+  const manualText = document.getElementById('manualText').value.trim();
+  if (!uploadedFiles.length && !manualText) {
+    alert('Adicione pelo menos um documento ou cole o conteúdo no campo de texto.');
+    return;
+  }
+
+  // Esconder relatório anterior, mostrar progresso
+  document.getElementById('reportCard').classList.remove('show');
+  document.getElementById('progressCard').classList.add('show');
+  document.getElementById('btnAnalyze').disabled = true;
+  document.getElementById('progressCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  ['ps-read','ps-send','ps-ai','ps-report'].forEach(id => {
+    document.getElementById(id).classList.remove('active','done','error');
+  });
+
+  try {
+    // PASSO 1 — Ler documentos
+    setStep('ps-read', 'active');
+    let allText = '';
+
+    for (let i = 0; i < uploadedFiles.length; i++) {
+      const f = uploadedFiles[i];
+      try {
+        uploadedFiles[i].status = 'reading';
+        renderFileList();
+        const text = f.file.name.endsWith('.pdf')
+          ? await extractPDFText(f.file)
+          : await extractTXTText(f.file);
+        uploadedFiles[i].text = text;
+        uploadedFiles[i].status = 'ok';
+        allText += `\n\n=== DOCUMENTO: ${f.file.name} ===\n\n${text}`;
+        renderFileList();
+      } catch (e) {
+        uploadedFiles[i].status = 'error';
+        renderFileList();
+      }
+    }
+
+    if (manualText) allText += `\n\n=== CONTEÚDO INSERIDO MANUALMENTE ===\n\n${manualText}`;
+
+    if (!allText.trim()) throw new Error('Nenhum conteúdo foi extraído dos documentos.');
+    setStep('ps-read', 'done');
+
+    // PASSO 2 — Enviar
+    setStep('ps-send', 'active');
+    await new Promise(r => setTimeout(r, 600));
+    setStep('ps-send', 'done');
+
+    // PASSO 3 — IA analisando
+    setStep('ps-ai', 'active');
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-allow-browser': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8192,
+        system: SYSTEM_PROMPT,
+        messages: [{
+          role: 'user',
+          content: `Analise os documentos tributários abaixo e gere o Relatório de Diagnóstico Tributário completo conforme instruído.\n\n${allText}`
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Erro HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const reportMd = data.content?.[0]?.text || '';
+    if (!reportMd) throw new Error('Resposta vazia da IA.');
+
+    setStep('ps-ai', 'done');
+
+    // PASSO 4 — Gerar relatório
+    setStep('ps-report', 'active');
+    await new Promise(r => setTimeout(r, 500));
+
+    const reportHTML = marked.parse(reportMd);
+    document.getElementById('reportBody').innerHTML = reportHTML;
+    document.getElementById('reportCard').classList.add('show');
+
+    setStep('ps-report', 'done');
+    document.getElementById('reportCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch (e) {
+    ['ps-read','ps-send','ps-ai','ps-report'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el.classList.contains('active')) setStep(id, 'error');
+    });
+    const body = document.getElementById('reportBody');
+    document.getElementById('reportCard').classList.add('show');
+    body.innerHTML = `<div class="alert err"><strong>Erro na análise:</strong> ${e.message}<br><br>Verifique se a API Key está correta e se os documentos foram carregados.</div>`;
+  } finally {
+    document.getElementById('btnAnalyze').disabled = false;
+  }
+}
+
+/* ─── EXPORT PDF ─────────────────────────────────────────────────────── */
+function exportPDF() {
+  window.print();
+}
+
+/* ─── COPY ───────────────────────────────────────────────────────────── */
+function copyReport() {
+  const text = document.getElementById('reportBody').innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    alert('Conteúdo do relatório copiado para a área de transferência.');
+  });
+}
+
+/* ─── RESET ──────────────────────────────────────────────────────────── */
+function resetTool() {
+  uploadedFiles = [];
+  renderFileList();
+  document.getElementById('manualText').value = '';
+  document.getElementById('reportCard').classList.remove('show');
+  document.getElementById('progressCard').classList.remove('show');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
