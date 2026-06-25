@@ -175,6 +175,7 @@
           <button class="toggle-eye" onclick="toggleKey()" title="Mostrar/ocultar">👁</button>
         </div>
         <button class="btn btn-primary" onclick="saveKey()">Salvar</button>
+        <button class="btn btn-outline" onclick="testKey()">🔌 Testar</button>
         <button class="btn btn-outline" onclick="clearKey()">Limpar</button>
       </div>
       <div id="apiStatus"></div>
@@ -349,7 +350,47 @@ function saveKey() {
   if (!val.startsWith('sk-ant-')) { showApiStatus(false,'Chave inválida — deve começar com sk-ant-'); return; }
   apiKey = val;
   localStorage.setItem('lle_api_key', val);
-  showApiStatus(true, 'Chave salva com sucesso');
+  showApiStatus(true, 'Chave salva — clique em Testar para verificar');
+}
+
+async function testKey() {
+  const val = document.getElementById('apiKeyInput').value.trim();
+  if (!val) { showApiStatus(false,'Salve a chave antes de testar'); return; }
+  showApiStatus(null, '⏳ Testando conexão...');
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      mode: 'cors',
+      headers: {
+        'x-api-key': val,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-allow-browser': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'ok' }]
+      })
+    });
+    if (r.status === 200 || r.status === 400) {
+      apiKey = val;
+      localStorage.setItem('lle_api_key', val);
+      showApiStatus(true, '✅ Chave válida! Conexão funcionando.');
+    } else if (r.status === 401) {
+      showApiStatus(false, '❌ Chave inválida ou revogada. Gere uma nova em console.anthropic.com');
+    } else if (r.status === 403) {
+      showApiStatus(false, '❌ Sem permissão. Verifique se a chave tem créditos.');
+    } else {
+      showApiStatus(false, `❌ Erro HTTP ${r.status}. Verifique a chave.`);
+    }
+  } catch(e) {
+    if (e.message.includes('fetch')) {
+      showApiStatus(false, '❌ Bloqueio de rede. Tente: (1) desativar extensões do navegador, (2) usar Chrome ou Edge, (3) desativar VPN/firewall.');
+    } else {
+      showApiStatus(false, '❌ Erro: ' + e.message);
+    }
+  }
 }
 
 function clearKey() {
@@ -503,6 +544,7 @@ async function startAnalysis() {
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
+      mode: 'cors',
       headers: {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
@@ -522,7 +564,12 @@ async function startAnalysis() {
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      throw new Error(err.error?.message || `Erro HTTP ${response.status}`);
+      const msg = err.error?.message || '';
+      if (response.status === 401) throw new Error('Chave API inválida ou revogada. Gere uma nova em console.anthropic.com e salve no Passo 1.');
+      if (response.status === 403) throw new Error('Chave sem permissão ou sem créditos. Verifique em console.anthropic.com → Billing.');
+      if (response.status === 429) throw new Error('Limite de requisições atingido. Aguarde alguns segundos e tente novamente.');
+      if (response.status === 529) throw new Error('Serviço da IA sobrecarregado. Aguarde 1 minuto e tente novamente.');
+      throw new Error(msg || `Erro HTTP ${response.status}. Verifique a chave e tente novamente.`);
     }
 
     const data = await response.json();
@@ -549,7 +596,15 @@ async function startAnalysis() {
     });
     const body = document.getElementById('reportBody');
     document.getElementById('reportCard').classList.add('show');
-    body.innerHTML = `<div class="alert err"><strong>Erro na análise:</strong> ${e.message}<br><br>Verifique se a API Key está correta e se os documentos foram carregados.</div>`;
+    let msg = e.message;
+    if (msg.includes('fetch') || msg.includes('network') || msg.toLowerCase().includes('failed')) {
+      msg = `Não foi possível conectar à API da Anthropic. Possíveis causas:<br><br>
+      <b>1.</b> Extensão do navegador bloqueando (AdBlock, VPN, firewall) → desative temporariamente<br>
+      <b>2.</b> Chave API inválida ou revogada → clique em "🔌 Testar" no Passo 1<br>
+      <b>3.</b> Sem créditos na conta → acesse console.anthropic.com → Billing<br><br>
+      <small>Erro técnico: ${e.message}</small>`;
+    }
+    body.innerHTML = `<div class="alert err"><strong>❌ Erro na análise:</strong><br><br>${msg}</div>`;
   } finally {
     document.getElementById('btnAnalyze').disabled = false;
   }
